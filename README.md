@@ -13,6 +13,11 @@ Run unit tests:
 cargo test
 ```
 
+Run linter:
+```sh
+cargo clippy
+```
+
 Build release binaries:
 ```sh
 cargo build --release
