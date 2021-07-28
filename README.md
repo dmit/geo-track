@@ -32,3 +32,4 @@ cargo build --release
 - [ ] REST API for current state
 - [ ] Streaming WebSocket API to export push updates in real time
 - [ ] Web UI to view live data on a map
+- [ ] Structured logging and export in OpenTelemetry format

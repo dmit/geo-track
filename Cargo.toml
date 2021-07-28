@@ -1,3 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["shared"]
+members = ["server", "shared"]
+
+[profile.dev.package.backtrace]
+opt-level = 3
