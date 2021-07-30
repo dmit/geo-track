@@ -25,7 +25,7 @@ pub struct Status {
 #[cfg(test)]
 mod tests {
     use float_eq::assert_float_eq;
-    use time::{date, offset, time, PrimitiveDateTime};
+    use time::macros::datetime;
     use uom::si::{angle::degree, velocity::kilometer_per_hour};
     use uuid::Uuid;
 
@@ -43,7 +43,7 @@ mod tests {
             }
         "###;
 
-        let decoded: Status = serde_json::from_str(&json)?;
+        let decoded: Status = serde_json::from_str(json)?;
 
         assert_eq!(
             decoded.source_id,
@@ -52,11 +52,7 @@ mod tests {
                 0xfe, 0x11,
             ]))
         );
-        assert_eq!(
-            decoded.timestamp,
-            PrimitiveDateTime::new(date!(2021 - 07 - 27), time!(08:45:19))
-                .assume_offset(offset!(+3))
-        );
+        assert_eq!(decoded.timestamp, datetime!(2021-07-27 08:45:19 +3));
         assert_float_eq!(decoded.location.map(|l| l.x), Some(59.437_222), abs <= Some(0.000_001));
         assert_float_eq!(decoded.location.map(|l| l.y), Some(24.745_278), abs <= Some(0.000_001));
         assert_float_eq!(
@@ -82,7 +78,7 @@ mod tests {
             }
         "###;
 
-        let decoded: Status = serde_json::from_str(&json)?;
+        let decoded: Status = serde_json::from_str(json)?;
 
         assert_eq!(
             decoded.source_id,
@@ -91,11 +87,7 @@ mod tests {
                 0xfe, 0x11,
             ]))
         );
-        assert_eq!(
-            decoded.timestamp,
-            PrimitiveDateTime::new(date!(2021 - 07 - 27), time!(08:45:19))
-                .assume_offset(offset!(+3))
-        );
+        assert_eq!(decoded.timestamp, datetime!(2021-07-27 08:45:19 +3));
         assert_eq!(decoded.location, None);
         assert_eq!(decoded.bearing, None);
         assert_eq!(decoded.speed, None);
