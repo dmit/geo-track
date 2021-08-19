@@ -2,5 +2,6 @@
 resolver = "2"
 members = ["server", "shared"]
 
+# Optimize the backtrace crate even in dev builds, as suggested by color-eyre.
 [profile.dev.package.backtrace]
 opt-level = 3

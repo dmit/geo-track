@@ -3,27 +3,27 @@
 use std::net::{IpAddr, SocketAddr};
 
 use argh::FromArgs;
+use axum::prelude::*;
+use serde::Deserialize;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
-use warp::Filter;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    setup()?;
-
-    run().await
+    setup_logging()?;
+    start_server().await
 }
 
-fn setup() -> eyre::Result<()> {
+fn setup_logging() -> eyre::Result<()> {
     // color-eyre
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
-        std::env::set_var("RUST_LIB_BACKTRACE", "1")
+        std::env::set_var("RUST_LIB_BACKTRACE", "1");
     }
     color_eyre::install()?;
 
     // tracing
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info")
+        std::env::set_var("RUST_LOG", "info");
     }
     tracing_subscriber::fmt::fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
@@ -31,7 +31,7 @@ fn setup() -> eyre::Result<()> {
 }
 
 #[derive(Debug, FromArgs)]
-#[argh(description = "Geo Tracker service")]
+#[argh(description = "Geo Tracker network service")]
 struct Opts {
     /// network host the server will bind to
     #[argh(option, short = 'h', default = "std::net::Ipv4Addr::LOCALHOST.into()")]
@@ -42,14 +42,28 @@ struct Opts {
     port: u16,
 }
 
-async fn run() -> eyre::Result<()> {
+async fn start_server() -> eyre::Result<()> {
     let opts: Opts = argh::from_env();
     info!(?opts);
 
-    let hello = warp::path!("hello" / String).map(|name| format!("Hello, {}!", name));
+    let app = route("/", get(hello));
 
     info!(host = %opts.host, post = %opts.port, "Starting network server...");
-    warp::serve(hello).run(SocketAddr::new(opts.host, opts.port)).await;
+    axum::Server::bind(&SocketAddr::new(opts.host, opts.port))
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct HelloQuery {
+    name: String,
+}
+
+async fn hello(query: Option<extract::Query<HelloQuery>>) -> String {
+    match query {
+        Some(extract::Query(HelloQuery { name })) => format!("Hello, {}!", name),
+        None => "Hello!".to_owned(),
+    }
 }
