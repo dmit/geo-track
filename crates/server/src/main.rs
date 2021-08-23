@@ -5,13 +5,16 @@ use std::net::{IpAddr, SocketAddr};
 use argh::FromArgs;
 use axum::prelude::*;
 use serde::Deserialize;
+use tower_http::trace::TraceLayer;
 use tracing::info;
-use tracing_subscriber::EnvFilter;
+use tracing_error::ErrorLayer;
+use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     setup_logging()?;
-    start_server().await
+    let opts = argh::from_env();
+    start_server(opts).await
 }
 
 fn setup_logging() -> eyre::Result<()> {
@@ -25,7 +28,11 @@ fn setup_logging() -> eyre::Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
-    tracing_subscriber::fmt::fmt().with_env_filter(EnvFilter::from_default_env()).init();
+    let filter = EnvFilter::try_from_default_env()?;
+    let output = tracing_subscriber::fmt::layer()
+        .with_timer(ChronoUtc::with_format("%Y-%m-%d %H:%M:%S.%3fZ".to_owned()));
+    let errors = ErrorLayer::default();
+    tracing_subscriber::registry().with(filter).with(output).with(errors).init();
 
     Ok(())
 }
@@ -42,13 +49,11 @@ struct Opts {
     port: u16,
 }
 
-async fn start_server() -> eyre::Result<()> {
-    let opts: Opts = argh::from_env();
-    info!(?opts);
+#[tracing::instrument]
+async fn start_server(opts: Opts) -> eyre::Result<()> {
+    let app = route("/", get(hello)).layer(TraceLayer::new_for_http());
 
-    let app = route("/", get(hello));
-
-    info!(host = %opts.host, post = %opts.port, "Starting network server...");
+    info!("Starting network server at http://{}:{}...", opts.host, opts.port);
     axum::Server::bind(&SocketAddr::new(opts.host, opts.port))
         .serve(app.into_make_service())
         .await?;
@@ -56,11 +61,12 @@ async fn start_server() -> eyre::Result<()> {
     Ok(())
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct HelloQuery {
     name: String,
 }
 
+#[tracing::instrument]
 async fn hello(query: Option<extract::Query<HelloQuery>>) -> String {
     match query {
         Some(extract::Query(HelloQuery { name })) => format!("Hello, {}!", name),

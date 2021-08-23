@@ -6,21 +6,30 @@ The project emulates a web service that tracks current geographic locations of a
 in real time based on incoming pings. As a real life example, consider tracking fleets of delivery
 vehicles, ships, airplanes, etc.
 
-## Build instructions
+## Building
+
+Run the server locally in dev mode:
+```sh
+export RUST_LOG=info,tower_http=debug
+cargo run --bin server
+```
+
+Build release binaries:
+```sh
+cargo build --release
+```
+
+## Development
 
 Run unit tests:
 ```sh
 cargo test
 ```
 
-Run linter:
+Format code and run linter:
 ```sh
+cargo fmt
 cargo clippy
-```
-
-Build release binaries:
-```sh
-cargo build --release
 ```
 
 ## Features

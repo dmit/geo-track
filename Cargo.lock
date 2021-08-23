@@ -673,7 +673,9 @@ dependencies = [
  "serde_json",
  "shared",
  "tokio",
+ "tower-http",
  "tracing",
+ "tracing-error",
  "tracing-subscriber",
 ]
 
@@ -828,6 +830,7 @@ dependencies = [
  "pin-project",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
