@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use geo_types::Coordinate;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -6,8 +8,15 @@ use uuid::Uuid;
 
 /// Globally unique identifier of a data source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
 #[serde(transparent)]
 pub struct SourceId(Uuid);
+
+impl Display for SourceId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// A data packet from a given source, created at a given time. May optionally
 /// contain geopositional data.
@@ -32,7 +41,7 @@ mod tests {
     use crate::data::{SourceId, Status};
 
     #[test]
-    fn deserialization_full() -> serde_json::Result<()> {
+    fn json_serialization_full() -> serde_json::Result<()> {
         let json = r###"
             {
                 "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
@@ -70,7 +79,7 @@ mod tests {
     }
 
     #[test]
-    fn deserialization_min() -> serde_json::Result<()> {
+    fn json_serialization_minimal() -> serde_json::Result<()> {
         let json = r###"
             {
                 "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
