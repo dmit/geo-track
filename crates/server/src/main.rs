@@ -2,6 +2,7 @@
 
 mod http;
 mod ingest;
+mod storage;
 
 use std::{io, net::SocketAddr};
 
@@ -15,6 +16,14 @@ use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 #[derive(Debug, FromArgs)]
 #[argh(description = "Geo Tracker network service")]
 struct Opts {
+    /// storage to use for incoming events and computed data.
+    /// supported values:
+    /// "memory" (in-memory storage);
+    /// "sled[:db_path]" (on-disk persistence using the embedded Sled database
+    /// engine, with an optional path to the storage directory)
+    #[argh(option, default = "storage::StorageConfig::InMemory")]
+    storage: storage::StorageConfig,
+
     /// network host the HTTP server will bind to
     #[argh(option, short = 'h', default = "\"127.0.0.1\".to_owned()")]
     host: String,
@@ -59,6 +68,11 @@ async fn main() -> eyre::Result<()> {
     let opts = argh::from_env::<Opts>();
     info!(?opts, "Starting server...");
 
+    // Initializing storage.
+    info!("Initializing storage...");
+    let mut _storage = storage::init(&opts.storage).wrap_err("Failed to initialize storage")?;
+
+    // Initializing network listeners.
     let http_addr = lookup_first(opts.host.as_str(), opts.port)
         .await
         .wrap_err_with(|| eyre!("Failed to resolve HTTP bind address: {}", &opts.host))?;

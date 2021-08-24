@@ -36,7 +36,8 @@ cargo clippy
 
 - [x] Event ingestion
   - [ ] JSON
-  - [x] binary protocol (Bincode)
+  - [x] Binary protocol (Bincode)
+  - [ ] Persistence
 - [ ] Basic event processing
   - [ ] Metrics
     - [ ] Total mileage
@@ -48,4 +49,4 @@ cargo clippy
 - [ ] Streaming WebSocket API to export push updates in real time
 - [ ] Web UI to view live data on a map
 - [x] Structured logging
-  - [ ] export in OpenTelemetry format
+  - [ ] Export in OpenTelemetry format
