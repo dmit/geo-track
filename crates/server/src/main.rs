@@ -3,10 +3,9 @@
 mod http;
 mod ingest;
 
-use std::net::{IpAddr, SocketAddr};
-
 use argh::FromArgs;
-use tokio::sync::mpsc;
+use eyre::eyre;
+use tokio::{net::lookup_host, sync::mpsc};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 
@@ -14,16 +13,16 @@ use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 #[argh(description = "Geo Tracker network service")]
 struct Opts {
     /// network host the HTTP server will bind to
-    #[argh(option, short = 'h', default = "std::net::Ipv4Addr::LOCALHOST.into()")]
-    host: IpAddr,
+    #[argh(option, short = 'h', default = "\"127.0.0.1\".to_owned()")]
+    host: String,
 
     /// network port the HTTP server will bind to
     #[argh(option, short = 'p', default = "8000")]
     port: u16,
 
     /// network host the TCP listener will bind to
-    #[argh(option, default = "std::net::Ipv4Addr::LOCALHOST.into()")]
-    tcp_host: IpAddr,
+    #[argh(option, default = "\"127.0.0.1\".to_owned()")]
+    tcp_host: String,
 
     /// network port the TCP listener will bind to
     #[argh(option, default = "8001")]
@@ -37,16 +36,21 @@ struct Opts {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     setup_logging()?;
+
     let opts = argh::from_env::<Opts>();
+    let http_addr = lookup_host((opts.host.as_str(), opts.port))
+        .await?
+        .next()
+        .ok_or_else(|| eyre!("Unable to resolve HTTP host: {}", &opts.host))?;
+    let tcp_addr = lookup_host((opts.tcp_host.as_str(), opts.tcp_port))
+        .await?
+        .next()
+        .ok_or_else(|| eyre!("Unable to resolve TCP host: {}", &opts.tcp_host))?;
+
     let (status_tx, mut _status_rx) = mpsc::channel(1024);
 
-    ingest::listen(
-        &SocketAddr::new(opts.tcp_host, opts.tcp_port),
-        opts.tcp_read_timeout.into(),
-        status_tx,
-    )
-    .await?;
-    http::listen(&SocketAddr::new(opts.host, opts.port)).await?;
+    ingest::listen(&tcp_addr, opts.tcp_read_timeout.into(), status_tx).await?;
+    http::listen(&http_addr).await?;
 
     Ok(())
 }
