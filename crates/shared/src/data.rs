@@ -1,3 +1,6 @@
+//! This module contains data structures that describe sensor information used
+//! for tracking.
+
 use core::fmt::Display;
 
 use geo_types::Coordinate;
@@ -6,7 +9,7 @@ use time::OffsetDateTime;
 use uom::si::f64::{Angle, Velocity};
 use uuid::Uuid;
 
-/// Globally unique identifier of a data source.
+/// Globally unique identifier of a data source (sensor, vehicle, etc).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 #[serde(transparent)]
@@ -23,11 +26,17 @@ impl Display for SourceId {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Status {
+    /// Globally unique identifier of the sensor.
     pub source_id: SourceId,
+    /// Timestamp of the moment the data in this `Status` packet has been
+    /// collected.
     #[serde(with = "time::serde::timestamp")]
     pub timestamp: OffsetDateTime,
+    /// GPS position.
     pub location: Option<Coordinate<f64>>,
+    /// Movement direction.
     pub bearing: Option<Angle>,
+    /// Moving speed.
     pub speed: Option<Velocity>,
 }
 

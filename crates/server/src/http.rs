@@ -7,6 +7,7 @@ use serde::Deserialize;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
+/// Bind to the specified network address and start serving HTTP requests.
 #[tracing::instrument]
 pub async fn listen(addr: &SocketAddr) -> eyre::Result<()> {
     let app = Router::new().route("/", get(hello)).layer(TraceLayer::new_for_http());

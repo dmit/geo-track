@@ -1,13 +1,8 @@
-#![forbid(unsafe_code)]
-
-mod http;
-mod ingest;
-mod storage;
-
 use std::{io, net::SocketAddr};
 
 use argh::FromArgs;
 use eyre::{eyre, WrapErr};
+use server::{http, ingest, storage};
 use tokio::{net::lookup_host, sync::mpsc};
 use tracing::info;
 use tracing_error::ErrorLayer;

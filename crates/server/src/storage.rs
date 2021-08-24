@@ -1,3 +1,6 @@
+//! This module houses the [`Storage`] trait that describes the interface of
+//! supported persistence engines, as well as its implementations.
+
 mod memory;
 #[cfg(feature = "sled")]
 mod sled;
@@ -13,11 +16,16 @@ use crate::storage::memory::MemoryStorage;
 #[cfg(feature = "sled")]
 use crate::storage::sled::{SledConfig, SledStorage};
 
+/// Lists all supported storage backends along with their corresponding
+/// configuration options.
 #[derive(Debug)]
 pub enum StorageConfig {
+    /// In-memory storage. Not persisted between service restarts.
     InMemory,
+    /// Persistent storage backed by the Sled database engine.
     #[cfg(feature = "sled")]
     Sled {
+        /// Path to the directory where Sled stores its data.
         config: SledConfig,
     },
 }
@@ -49,10 +57,15 @@ impl FromStr for StorageConfig {
     }
 }
 
+/// This trait describes the operations that all supported storage engines must
+/// support in order to be used in this project.
 #[async_trait]
 pub trait Storage {
+    /// Save a single [`Status`] packet.
     async fn persist_status(&mut self, status: Status) -> eyre::Result<()>;
 
+    /// Get a range of [`Status`] packets for a given [`SourceId`] in a given
+    /// time range.
     async fn get_statuses<R>(
         &self,
         source_id: SourceId,
@@ -62,8 +75,11 @@ pub trait Storage {
         R: RangeBounds<OffsetDateTime> + Send;
 }
 
+/// A concrete instance of one of the supported storage engines.
 pub enum StorageEngine {
+    #[doc(hidden)]
     InMemory(MemoryStorage),
+    #[doc(hidden)]
     #[cfg(feature = "sled")]
     Sled(SledStorage),
 }
@@ -90,6 +106,8 @@ impl Storage for StorageEngine {
     }
 }
 
+/// Initialize an instance of a storage engine based on the provided
+/// [`StorageConfig`] and return it.
 pub fn init(cfg: &StorageConfig) -> eyre::Result<StorageEngine> {
     match cfg {
         StorageConfig::InMemory => Ok(StorageEngine::InMemory(MemoryStorage::default())),

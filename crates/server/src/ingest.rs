@@ -22,6 +22,9 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
+/// Bind to the specified network address and start listening for incoming
+/// [`Status`] packets over TCP. Incoming packets are decoded and forwarded for
+/// storage and further processing.
 #[tracing::instrument(skip(status_tx))]
 pub async fn listen_tcp(
     addr: &SocketAddr,
@@ -83,6 +86,9 @@ async fn process_status_stream(
     Ok(())
 }
 
+/// Bind to the specified network address and start listening for incoming
+/// [`Status`] packets over UDP. Incoming packets are decoded and forwarded for
+/// storage and further processing.
 #[tracing::instrument(skip(status_tx))]
 pub async fn listen_udp(addr: &SocketAddr, status_tx: Sender<Status>) -> eyre::Result<()> {
     info!("Starting UDP listener at http://{}:{}...", addr.ip(), addr.port());
