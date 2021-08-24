@@ -2,14 +2,14 @@
 
 use std::net::SocketAddr;
 
-use axum::prelude::*;
+use axum::{extract, handler::get, routing::Router};
 use serde::Deserialize;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
 #[tracing::instrument]
 pub async fn listen(addr: &SocketAddr) -> eyre::Result<()> {
-    let app = route("/", get(hello)).layer(TraceLayer::new_for_http());
+    let app = Router::new().route("/", get(hello)).layer(TraceLayer::new_for_http());
 
     info!("Starting HTTP server at http://{}:{}...", addr.ip(), addr.port());
     axum::Server::bind(addr).serve(app.into_make_service()).await?;
