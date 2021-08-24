@@ -10,7 +10,7 @@ vehicles, ships, airplanes, etc.
 
 Run the server locally in dev mode:
 ```sh
-export RUST_LOG=info,tower_http=debug
+export RUST_LOG=info,server=debug,tower_http=debug
 cargo run --bin server
 ```
 
@@ -34,11 +34,18 @@ cargo clippy
 
 ## Features
 
-- [ ] Event ingestion
+- [x] Event ingestion
   - [ ] JSON
-  - [ ] binary protocols
+  - [x] binary protocol (Bincode)
+- [ ] Basic event processing
+  - [ ] Metrics
+    - [ ] Total mileage
+    - [ ] Average movement speed
+  - [ ] Alerts
+    - [ ] Entering/exiting pre-specified zone
 - [ ] Random event generation
 - [ ] REST API for current state
 - [ ] Streaming WebSocket API to export push updates in real time
 - [ ] Web UI to view live data on a map
-- [ ] Structured logging and export in OpenTelemetry format
+- [x] Structured logging
+  - [ ] export in OpenTelemetry format
