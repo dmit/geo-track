@@ -50,12 +50,16 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    async fn lookup_first(host: &str, port: u16) -> io::Result<SocketAddr> {
-        lookup_host((host, port)).await.and_then(|mut addrs| {
-            addrs.next().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, "host didn't resolve to any IP addresses")
+    #[tracing::instrument]
+    async fn lookup_first(host: &str, port: u16) -> eyre::Result<SocketAddr> {
+        lookup_host((host, port))
+            .await
+            .and_then(|mut addrs| {
+                addrs.next().ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "Host didn't resolve to any IP addresses")
+                })
             })
-        })
+            .wrap_err_with(|| eyre!("Failed to resolve hostname: {}", host))
     }
 
     setup_logging()?;
@@ -68,15 +72,9 @@ async fn main() -> eyre::Result<()> {
     let mut _storage = storage::init(&opts.storage).wrap_err("Failed to initialize storage")?;
 
     // Initializing network listeners.
-    let http_addr = lookup_first(opts.host.as_str(), opts.port)
-        .await
-        .wrap_err_with(|| eyre!("Failed to resolve HTTP bind address: {}", &opts.host))?;
-    let tcp_addr = lookup_first(opts.tcp_host.as_str(), opts.tcp_port)
-        .await
-        .wrap_err_with(|| eyre!("Failed to resolve TCP bind address: {}", &opts.tcp_host))?;
-    let udp_addr = lookup_first(opts.udp_host.as_str(), opts.udp_port)
-        .await
-        .wrap_err_with(|| eyre!("Failed to resolve UDP bind address: {}", &opts.udp_host))?;
+    let http_addr = lookup_first(opts.host.as_str(), opts.port).await?;
+    let tcp_addr = lookup_first(opts.tcp_host.as_str(), opts.tcp_port).await?;
+    let udp_addr = lookup_first(opts.udp_host.as_str(), opts.udp_port).await?;
 
     let (status_tx, mut _status_rx) = mpsc::channel(1024);
 
@@ -88,6 +86,9 @@ async fn main() -> eyre::Result<()> {
 }
 
 fn setup_logging() -> eyre::Result<()> {
+    // Backtrace and spantrace capture.
+    color_eyre::install()?;
+
     // Default log level for tracing.
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");

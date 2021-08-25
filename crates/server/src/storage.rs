@@ -5,7 +5,7 @@ mod memory;
 #[cfg(feature = "sled")]
 mod sled;
 
-use std::{ops::RangeBounds, str::FromStr};
+use std::{fmt::Debug, ops::RangeBounds, str::FromStr};
 
 use async_trait::async_trait;
 use eyre::bail;
@@ -13,8 +13,6 @@ use shared::data::{SourceId, Status};
 use time::OffsetDateTime;
 
 use crate::storage::memory::MemoryStorage;
-#[cfg(feature = "sled")]
-use crate::storage::sled::{SledConfig, SledStorage};
 
 /// Lists all supported storage backends along with their corresponding
 /// configuration options.
@@ -26,7 +24,7 @@ pub enum StorageConfig {
     #[cfg(feature = "sled")]
     Sled {
         /// Path to the directory where Sled stores its data.
-        config: SledConfig,
+        config: sled::SledConfig,
     },
 }
 
@@ -41,9 +39,9 @@ impl FromStr for StorageConfig {
                 let config = if let Some(db_dir) =
                     s.split_once(':').map(|(_, path)| std::path::PathBuf::from(path))
                 {
-                    SledConfig { db_dir }
+                    sled::SledConfig { db_dir }
                 } else {
-                    SledConfig::default()
+                    sled::SledConfig::default()
                 };
                 Self::Sled { config }
             }
@@ -72,7 +70,7 @@ pub trait Storage {
         timestamps: R,
     ) -> eyre::Result<Vec<Status>>
     where
-        R: RangeBounds<OffsetDateTime> + Send;
+        R: RangeBounds<OffsetDateTime> + Send + Debug;
 }
 
 /// A concrete instance of one of the supported storage engines.
@@ -81,7 +79,7 @@ pub enum StorageEngine {
     InMemory(MemoryStorage),
     #[doc(hidden)]
     #[cfg(feature = "sled")]
-    Sled(SledStorage),
+    Sled(sled::SledStorage),
 }
 
 #[async_trait]
@@ -96,7 +94,7 @@ impl Storage for StorageEngine {
 
     async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> eyre::Result<Vec<Status>>
     where
-        R: RangeBounds<OffsetDateTime> + Send,
+        R: RangeBounds<OffsetDateTime> + Send + Debug,
     {
         match self {
             Self::InMemory(s) => s.get_statuses(source_id, timestamps).await,
@@ -108,10 +106,11 @@ impl Storage for StorageEngine {
 
 /// Initialize an instance of a storage engine based on the provided
 /// [`StorageConfig`] and return it.
+#[tracing::instrument]
 pub fn init(cfg: &StorageConfig) -> eyre::Result<StorageEngine> {
     match cfg {
         StorageConfig::InMemory => Ok(StorageEngine::InMemory(MemoryStorage::default())),
         #[cfg(feature = "sled")]
-        StorageConfig::Sled { config } => SledStorage::new(config).map(StorageEngine::Sled),
+        StorageConfig::Sled { config } => sled::SledStorage::new(config).map(StorageEngine::Sled),
     }
 }

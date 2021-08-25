@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::{ops::RangeBounds, path::PathBuf};
 
 use crate::storage::Storage;
@@ -30,13 +31,15 @@ impl SledStorage {
 
 #[async_trait]
 impl Storage for SledStorage {
+    #[tracing::instrument(skip(self))]
     async fn persist_status(&mut self, status: Status) -> eyre::Result<()> {
         todo!();
     }
 
+    #[tracing::instrument(skip(self))]
     async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> eyre::Result<Vec<Status>>
     where
-        R: RangeBounds<OffsetDateTime> + Send,
+        R: RangeBounds<OffsetDateTime> + Send + Debug,
     {
         todo!();
     }

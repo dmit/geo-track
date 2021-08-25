@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::Debug,
     ops::RangeBounds,
 };
 
@@ -23,7 +24,7 @@ impl Storage for MemoryStorage {
 
     async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> eyre::Result<Vec<Status>>
     where
-        R: RangeBounds<OffsetDateTime> + Send,
+        R: RangeBounds<OffsetDateTime> + Send + Debug,
     {
         let range = self
             .statuses

@@ -21,6 +21,8 @@ cargo build --release
 
 ## Development
 
+The project is being developed and tested using the latest stable version of the Rust compiler.
+
 Run unit tests:
 ```sh
 cargo test
