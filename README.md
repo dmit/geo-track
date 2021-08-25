@@ -37,8 +37,8 @@ cargo clippy
 ## Features
 
 - [x] Event ingestion
-  - [ ] JSON
-  - [x] Binary protocol (Bincode)
+  - [ ] JSON over HTTP
+  - [x] Binary over TCP and UDP (CBOR)
   - [ ] Persistence
 - [ ] Basic event processing
   - [ ] Metrics

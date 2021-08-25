@@ -1,17 +1,14 @@
 //! Listeners for incoming status updates arriving directly from monitored
 //! devices. In reality these would come in all kinds of proprietary (mostly
-//! binary) formats depending on the manufacturer, but we're using Bincode for
+//! binary) formats depending on the manufacturer, but we're using CBOR for
 //! demonstration purposes.
 //!
 //! Both TCP and UDP listeners are provided. The UDP listener only supports one
 //! status update per datagram, while the TCP listener can decode a stream of
-//! one or more. Bincode-encoded payloads sent to the TCP listener must be
-//! prefixed with their length in order for the decoder to properly determine
-//! their bounds.
+//! one or more payloads.
 
 use std::{net::SocketAddr, time::Duration};
 
-use async_bincode::AsyncBincodeReader;
 use eyre::eyre;
 use futures_util::stream::StreamExt;
 use shared::data::Status;
@@ -20,6 +17,7 @@ use tokio::{
     sync::mpsc::Sender,
     time::timeout,
 };
+use tokio_util::codec::FramedRead;
 use tracing::{debug, info, warn};
 
 /// Bind to the specified network address and start listening for incoming
@@ -71,7 +69,7 @@ async fn process_status_stream(
     status_tx: Sender<Status>,
     remote_addr: SocketAddr,
 ) -> eyre::Result<()> {
-    let mut reader = AsyncBincodeReader::<_, Status>::from(stream);
+    let mut reader = FramedRead::new(stream, tokio_serde_cbor::Decoder::<Status>::new());
     while let Some(frame) = timeout(read_timeout, reader.next()).await? {
         let status = frame.map_err(|err| eyre!("failed to deserialize status: {}", err))?;
         debug!(
@@ -94,14 +92,14 @@ pub async fn listen_udp(addr: &SocketAddr, status_tx: Sender<Status>) -> eyre::R
     info!("Starting UDP listener at http://{}:{}...", addr.ip(), addr.port());
 
     let socket = UdpSocket::bind(addr).await?;
-    // A valid `Status` with all fields specified is Bincode-encoded into ~70
+    // A valid `Status` with all fields specified is CBOR-encoded into ~100
     // bytes, so this buffer should be sufficient to store a single instance.
     let mut buf = [0; 128];
 
     tokio::spawn(async move {
         loop {
             match socket.recv_from(&mut buf).await {
-                Ok((len, remote_addr)) => match bincode::deserialize::<Status>(&buf[0..len]) {
+                Ok((len, remote_addr)) => match serde_cbor::from_slice::<Status>(&buf[0..len]) {
                     Ok(status) => {
                         debug!(
                             %remote_addr,

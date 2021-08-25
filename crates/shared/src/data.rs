@@ -29,14 +29,17 @@ pub struct Status {
     /// Globally unique identifier of the sensor.
     pub source_id: SourceId,
     /// Timestamp of the moment the data in this `Status` packet has been
-    /// collected.
+    /// collected. Serialized as seconds since UNIX epoch.
     #[serde(with = "time::serde::timestamp")]
     pub timestamp: OffsetDateTime,
-    /// GPS position.
-    pub location: Option<Coordinate<f64>>,
-    /// Movement direction.
+    /// GPS position. Serialized as [lon, lat].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<Coordinate<f64>>,
+    /// Movement direction. From 0 at North clockwise. Serialized as radians.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bearing: Option<Angle>,
-    /// Moving speed.
+    /// Moving speed. Serialized as meters/second.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed: Option<Velocity>,
 }
 
@@ -49,7 +52,7 @@ impl Status {
         Self {
             source_id: self.source_id,
             timestamp: self.timestamp,
-            location: rhs.location.or(self.location),
+            position: rhs.position.or(self.position),
             bearing: rhs.bearing.or(self.bearing),
             speed: rhs.speed.or(self.speed),
         }
@@ -58,45 +61,164 @@ impl Status {
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use float_eq::assert_float_eq;
+    use geo_types::Coordinate;
     use time::macros::datetime;
-    use uom::si::{angle::degree, velocity::kilometer_per_hour};
+    use uom::si::{angle::degree, velocity::kilometer_per_hour, Quantity};
     use uuid::Uuid;
 
     use crate::data::{SourceId, Status};
 
+    const FULL: Status = Status {
+        source_id: SourceId(Uuid::from_u128(0x0aaec05a_0e7d_4fd5_abc0_0ba69e3cfe11)),
+        timestamp: datetime!(2021-07-27 08:45:19 +3),
+        position: Some(Coordinate { x: 24.745_278, y: 59.437_222 }),
+        bearing: Some(Quantity { dimension: PhantomData, units: PhantomData, value: 1.234 }),
+        speed: Some(Quantity { dimension: PhantomData, units: PhantomData, value: 15. }),
+    };
+
+    const MINIMAL: Status = Status {
+        source_id: SourceId(Uuid::from_u128(0x0aaec05a_0e7d_4fd5_abc0_0ba69e3cfe11)),
+        timestamp: datetime!(2021-07-27 08:45:19 +3),
+        position: None,
+        bearing: None,
+        speed: None,
+    };
+
+    const FULL_JSON: &str = r###"{
+  "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
+  "timestamp": 1627364719,
+  "position": {
+    "x": 24.745278,
+    "y": 59.437222
+  },
+  "bearing": 1.234,
+  "speed": 15.0
+}"###;
+
+    const MINIMAL_JSON: &str = r###"{
+  "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
+  "timestamp": 1627364719
+}"###;
+
+    #[rustfmt::skip]
+    const FULL_CBOR: &[u8] = &[
+        // header
+        0xa5,
+        //    /---------------- "sourceId" ----------------\
+        0x68, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x49, 0x64,
+        //    /- source_id (verbatim, 16 bytes)
+        0x50, 0x0a, 0xae, 0xc0, 0x5a, 0x0e, 0x7d, 0x4f, 0xd5, 0xab, 0xc0, 0x0b, 0xa6, 0x9e, 0x3c, 0xfe, 0x11,
+        //    /------------------ "timestamp" -------------------\
+        0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
+        //    /- timestamp (u64 containing number of seconds since UNIX epoch)
+        0x1a, 0x60, 0xff, 0x9d, 0x6f,
+        // position
+        //                      "position"
+        //    /--------------------------------------------\
+        0x68, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e,
+        0xa2, 0x61, 0x78, 0xfb, 0x40, 0x38, 0xbe, 0xca, 0x89, 0xfc, 0x6d, 0xa4, 0x61, 0x79, 0xfb, 0x40, 0x4d, 0xb7, 0xf6, 0xe3, 0xf7, 0x8b, 0xbd, 0x67, 0x62, 0x65, 0x61, 0x72, 0x69, 0x6e, 0x67, 0xfb, 0x3f, 0xf3, 0xbe, 0x76, 0xc8, 0xb4, 0x39, 0x58, 0x65, 0x73, 0x70, 0x65, 0x65, 0x64, 0xf9, 0x4b, 0x80
+    ];
+
+    #[rustfmt::skip]
+    const MINIMAL_CBOR: &[u8] = &[
+        // header
+        0xa2,
+        //    /---------------- "sourceId" ----------------\
+        0x68, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x49, 0x64,
+        //    /- source_id (verbatim, 16 bytes)
+        0x50, 0x0a, 0xae, 0xc0, 0x5a, 0x0e, 0x7d, 0x4f, 0xd5, 0xab, 0xc0, 0x0b, 0xa6, 0x9e, 0x3c, 0xfe, 0x11,
+        //    /------------------ "timestamp" -------------------\
+        0x69, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
+        //    /- timestamp (u64 containing number of seconds since UNIX epoch)
+        0x1a, 0x60, 0xff, 0x9d, 0x6f,
+    ];
+
+    #[test]
+    fn status_merge() {
+        let merged1 = FULL.merge(&MINIMAL);
+        let merged2 = MINIMAL.merge(&FULL);
+
+        assert_eq!(merged1.source_id, FULL.source_id);
+        assert_eq!(merged1.timestamp, FULL.timestamp);
+        assert_eq!(merged1.position, FULL.position);
+        assert_eq!(merged1.bearing, FULL.bearing);
+        assert_eq!(merged1.speed, FULL.speed);
+
+        assert_eq!(merged2.source_id, FULL.source_id);
+        assert_eq!(merged2.timestamp, FULL.timestamp);
+        assert_eq!(merged2.position, FULL.position);
+        assert_eq!(merged2.bearing, FULL.bearing);
+        assert_eq!(merged2.speed, FULL.speed);
+    }
+
     #[test]
     fn json_serialization_full() -> serde_json::Result<()> {
-        let json = r###"
-            {
-                "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
-                "timestamp": 1627364719,
-                "location": [59.437222, 24.745278],
-                "bearing": 1.234,
-                "speed": 15
-            }
-        "###;
+        let encoded = serde_json::to_string_pretty(&FULL)?;
+        assert_eq!(encoded, FULL_JSON);
+        Ok(())
+    }
 
-        let decoded: Status = serde_json::from_str(json)?;
+    #[test]
+    fn json_serialization_minimal() -> serde_json::Result<()> {
+        let encoded = serde_json::to_string_pretty(&MINIMAL)?;
+        assert_eq!(encoded, MINIMAL_JSON);
+        Ok(())
+    }
 
-        assert_eq!(
-            decoded.source_id,
-            SourceId(Uuid::from_bytes([
-                0x0a, 0xae, 0xc0, 0x5a, 0x0e, 0x7d, 0x4f, 0xd5, 0xab, 0xc0, 0x0b, 0xa6, 0x9e, 0x3c,
-                0xfe, 0x11,
-            ]))
+    #[test]
+    fn cbor_serialization_full() -> serde_cbor::Result<()> {
+        let encoded = serde_cbor::to_vec(&FULL)?;
+        assert_eq!(encoded, FULL_CBOR);
+        Ok(())
+    }
+
+    #[test]
+    fn cbor_serialization_minimal() -> serde_cbor::Result<()> {
+        let encoded = serde_cbor::to_vec(&MINIMAL)?;
+        assert_eq!(encoded, MINIMAL_CBOR);
+        Ok(())
+    }
+
+    #[test]
+    fn cbor_deserialization_minimal() -> serde_cbor::Result<()> {
+        let decoded: Status = serde_cbor::from_slice(MINIMAL_CBOR)?;
+
+        assert_eq!(decoded.source_id, MINIMAL.source_id);
+        assert_eq!(decoded.timestamp, MINIMAL.timestamp);
+        assert_eq!(decoded.position, None);
+        assert_eq!(decoded.bearing, None);
+        assert_eq!(decoded.speed, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn json_deserialization_full() -> serde_json::Result<()> {
+        let decoded: Status = serde_json::from_str(FULL_JSON)?;
+
+        assert_eq!(decoded.source_id, FULL.source_id);
+        assert_eq!(decoded.timestamp, FULL.timestamp);
+        assert_float_eq!(
+            decoded.position.map(|l| l.x),
+            FULL.position.map(|l| l.x),
+            abs <= Some(0.000_001)
         );
-        assert_eq!(decoded.timestamp, datetime!(2021-07-27 08:45:19 +3));
-        assert_float_eq!(decoded.location.map(|l| l.x), Some(59.437_222), abs <= Some(0.000_001));
-        assert_float_eq!(decoded.location.map(|l| l.y), Some(24.745_278), abs <= Some(0.000_001));
+        assert_float_eq!(
+            decoded.position.map(|l| l.y),
+            FULL.position.map(|l| l.y),
+            abs <= Some(0.000_001)
+        );
         assert_float_eq!(
             decoded.bearing.map(|b| b.get::<degree>()),
-            Some(70.7),
+            FULL.bearing.map(|b| b.get::<degree>()),
             abs <= Some(0.005)
         );
         assert_float_eq!(
             decoded.speed.map(|s| s.get::<kilometer_per_hour>()),
-            Some(54.),
+            FULL.speed.map(|s| s.get::<kilometer_per_hour>()),
             abs <= Some(0.01)
         );
 
@@ -104,25 +226,12 @@ mod tests {
     }
 
     #[test]
-    fn json_serialization_minimal() -> serde_json::Result<()> {
-        let json = r###"
-            {
-                "sourceId": "0aaec05a-0e7d-4fd5-abc0-0ba69e3cfe11",
-                "timestamp": 1627364719
-            }
-        "###;
+    fn json_deserialization_minimal() -> serde_json::Result<()> {
+        let decoded: Status = serde_json::from_str(MINIMAL_JSON)?;
 
-        let decoded: Status = serde_json::from_str(json)?;
-
-        assert_eq!(
-            decoded.source_id,
-            SourceId(Uuid::from_bytes([
-                0x0a, 0xae, 0xc0, 0x5a, 0x0e, 0x7d, 0x4f, 0xd5, 0xab, 0xc0, 0x0b, 0xa6, 0x9e, 0x3c,
-                0xfe, 0x11,
-            ]))
-        );
-        assert_eq!(decoded.timestamp, datetime!(2021-07-27 08:45:19 +3));
-        assert_eq!(decoded.location, None);
+        assert_eq!(decoded.source_id, MINIMAL.source_id);
+        assert_eq!(decoded.timestamp, MINIMAL.timestamp);
+        assert_eq!(decoded.position, None);
         assert_eq!(decoded.bearing, None);
         assert_eq!(decoded.speed, None);
 
