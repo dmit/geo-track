@@ -13,11 +13,19 @@ use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 struct Opts {
     /// storage to use for incoming events and computed data.
     /// supported values:
-    /// "memory" (in-memory storage);
+    /// "memory" (in-memory storage; default),
     /// "sled[:db_path]" (on-disk persistence using the embedded Sled database
     /// engine, with an optional path to the storage directory)
     #[argh(option, default = "storage::StorageConfig::InMemory")]
     storage: storage::StorageConfig,
+
+    /// strategy to use when receiving multiple statuses for the same sensor
+    /// and timestamp. supported values: "merge" (fields from duplicate packets
+    /// are added to the existing status entry; default), "drop" (duplicates
+    /// are discarded), "overwrite" (duplicate packets overwrite existing
+    /// entries)
+    #[argh(option, default = "storage::DupeStrategy::Merge")]
+    duplicates: storage::DupeStrategy,
 
     /// network host the HTTP server will bind to
     #[argh(option, short = 'h', default = "\"127.0.0.1\".to_owned()")]
@@ -69,7 +77,8 @@ async fn main() -> eyre::Result<()> {
 
     // Initializing storage.
     info!("Initializing storage...");
-    let mut _storage = storage::init(&opts.storage).wrap_err("Failed to initialize storage")?;
+    let mut _storage =
+        storage::init(&opts.storage, opts.duplicates).wrap_err("Failed to initialize storage")?;
 
     // Initializing network listeners.
     let http_addr = lookup_first(opts.host.as_str(), opts.port).await?;

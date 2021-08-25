@@ -4,21 +4,46 @@ use std::{
     ops::RangeBounds,
 };
 
+use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use time::OffsetDateTime;
 
-use crate::storage::Storage;
-use async_trait::async_trait;
+use crate::storage::{DupeStrategy, Storage};
 
-#[derive(Default)]
 pub struct MemoryStorage {
     statuses: HashMap<SourceId, BTreeMap<OffsetDateTime, Status>>,
+    dupe_strategy: DupeStrategy,
+}
+
+impl MemoryStorage {
+    pub fn new(dupe_strategy: DupeStrategy) -> Self {
+        Self { statuses: Default::default(), dupe_strategy }
+    }
 }
 
 #[async_trait]
 impl Storage for MemoryStorage {
     async fn persist_status(&mut self, status: Status) -> eyre::Result<()> {
-        self.statuses.entry(status.source_id).or_default().insert(status.timestamp, status);
+        match self.dupe_strategy {
+            DupeStrategy::Drop => {
+                self.statuses
+                    .entry(status.source_id)
+                    .or_default()
+                    .entry(status.timestamp)
+                    .or_insert(status);
+            }
+            DupeStrategy::Merge => {
+                self.statuses
+                    .entry(status.source_id)
+                    .or_default()
+                    .entry(status.timestamp)
+                    .and_modify(|s| *s = s.merge(&status))
+                    .or_insert(status);
+            }
+            DupeStrategy::Overwrite => {
+                self.statuses.entry(status.source_id).or_default().insert(status.timestamp, status);
+            }
+        }
         Ok(())
     }
 

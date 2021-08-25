@@ -14,6 +14,24 @@ use time::OffsetDateTime;
 
 use crate::storage::memory::MemoryStorage;
 
+/// This trait describes the operations that all supported storage engines must
+/// support in order to be used in this project.
+#[async_trait]
+pub trait Storage {
+    /// Save a single [`Status`] packet.
+    async fn persist_status(&mut self, status: Status) -> eyre::Result<()>;
+
+    /// Get a range of [`Status`] packets for a given [`SourceId`] in a given
+    /// time range.
+    async fn get_statuses<R>(
+        &self,
+        source_id: SourceId,
+        timestamps: R,
+    ) -> eyre::Result<Vec<Status>>
+    where
+        R: RangeBounds<OffsetDateTime> + Send + Debug;
+}
+
 /// Lists all supported storage backends along with their corresponding
 /// configuration options.
 #[derive(Debug)]
@@ -55,22 +73,31 @@ impl FromStr for StorageConfig {
     }
 }
 
-/// This trait describes the operations that all supported storage engines must
-/// support in order to be used in this project.
-#[async_trait]
-pub trait Storage {
-    /// Save a single [`Status`] packet.
-    async fn persist_status(&mut self, status: Status) -> eyre::Result<()>;
+/// Strategy to use when multiple [`Status`] packets arrive with the same pair
+/// of `source_id` + `timestamp`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DupeStrategy {
+    /// Discard newly received packets, keeping the original one.
+    Drop,
+    /// Add all fields of the newly received packets to the current entry,
+    /// potentially overwriting existing data.
+    Merge,
+    /// Replace existing [`Status`] entry with the newly received one.
+    Overwrite,
+}
 
-    /// Get a range of [`Status`] packets for a given [`SourceId`] in a given
-    /// time range.
-    async fn get_statuses<R>(
-        &self,
-        source_id: SourceId,
-        timestamps: R,
-    ) -> eyre::Result<Vec<Status>>
-    where
-        R: RangeBounds<OffsetDateTime> + Send + Debug;
+impl FromStr for DupeStrategy {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let strat = match s {
+            "drop" => Self::Drop,
+            "merge" => Self::Merge,
+            "overwrite" => Self::Overwrite,
+            _ => bail!("unsupported duplicate strategy: {}", s),
+        };
+        Ok(strat)
+    }
 }
 
 /// A concrete instance of one of the supported storage engines.
@@ -107,10 +134,12 @@ impl Storage for StorageEngine {
 /// Initialize an instance of a storage engine based on the provided
 /// [`StorageConfig`] and return it.
 #[tracing::instrument]
-pub fn init(cfg: &StorageConfig) -> eyre::Result<StorageEngine> {
+pub fn init(cfg: &StorageConfig, dupe_strategy: DupeStrategy) -> eyre::Result<StorageEngine> {
     match cfg {
-        StorageConfig::InMemory => Ok(StorageEngine::InMemory(MemoryStorage::default())),
+        StorageConfig::InMemory => Ok(StorageEngine::InMemory(MemoryStorage::new(dupe_strategy))),
         #[cfg(feature = "sled")]
-        StorageConfig::Sled { config } => sled::SledStorage::new(config).map(StorageEngine::Sled),
+        StorageConfig::Sled { config } => {
+            sled::SledStorage::new(config, dupe_strategy).map(StorageEngine::Sled)
+        }
     }
 }

@@ -1,11 +1,12 @@
 use std::fmt::Debug;
 use std::{ops::RangeBounds, path::PathBuf};
 
-use crate::storage::Storage;
 use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use sled::Db;
 use time::OffsetDateTime;
+
+use crate::storage::{DupeStrategy, Storage};
 
 #[derive(Debug)]
 pub struct SledConfig {
@@ -20,12 +21,13 @@ impl Default for SledConfig {
 
 pub struct SledStorage {
     db: Db,
+    dupe_strategy: DupeStrategy,
 }
 
 impl SledStorage {
-    pub fn new(cfg: &SledConfig) -> eyre::Result<Self> {
+    pub fn new(cfg: &SledConfig, dupe_strategy: DupeStrategy) -> eyre::Result<Self> {
         let db = sled::open(&cfg.db_dir)?;
-        Ok(Self { db })
+        Ok(Self { db, dupe_strategy })
     }
 }
 

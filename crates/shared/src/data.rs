@@ -40,6 +40,22 @@ pub struct Status {
     pub speed: Option<Velocity>,
 }
 
+impl Status {
+    /// Merges optional fields of two [`Status`] values to produce a new value,
+    /// ignoring `source_id` and `timestamp` of `rhs`. If both source values
+    /// have a given field set, the one from `rhs` is used.
+    #[must_use]
+    pub fn merge(&self, rhs: &Self) -> Self {
+        Self {
+            source_id: self.source_id,
+            timestamp: self.timestamp,
+            location: rhs.location.or(self.location),
+            bearing: rhs.bearing.or(self.bearing),
+            speed: rhs.speed.or(self.speed),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use float_eq::assert_float_eq;
