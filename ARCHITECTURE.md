@@ -4,6 +4,13 @@ For the tracking server start with the `main` function in `crates/server/bin`.
 
 ## Q&A
 
+### Why Axum for HTTP?
+
+For a production-grade project I would go with a more mature library (likely,
+[Actix Web](https://actix.rs/)), but since this is more of a showcase, Axum won
+out because it's smaller (most importantly, in terms of compilation time), yet
+also surprisingly full-featured for such a new library.
+
 ### Why CBOR for binary encoding?
 
 Since the goal of this project isn't solving any actual problems, but rather to
