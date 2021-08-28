@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use std::{ops::RangeBounds, path::PathBuf};
+use std::{fmt::Debug, ops::RangeBounds, path::PathBuf};
 
 use async_trait::async_trait;
 use shared::data::{SourceId, Status};
@@ -14,9 +13,7 @@ pub struct SledConfig {
 }
 
 impl Default for SledConfig {
-    fn default() -> Self {
-        Self { db_dir: PathBuf::from("./geo_track_sled_db") }
-    }
+    fn default() -> Self { Self { db_dir: PathBuf::from("./geo_track_sled_db") } }
 }
 
 pub struct SledStorage {

@@ -1,9 +1,18 @@
 use std::{io, net::SocketAddr};
 
 use argh::FromArgs;
+use async_trait::async_trait;
 use eyre::{eyre, WrapErr};
-use server::{http, ingest, storage};
-use tokio::{net::lookup_host, sync::mpsc};
+use server::{
+    http,
+    ingest::{self, StatusHandler},
+    storage,
+};
+use shared::data::Status;
+use tokio::{
+    net::lookup_host,
+    sync::mpsc::{self, Sender},
+};
 use tracing::info;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
@@ -86,9 +95,10 @@ async fn main() -> eyre::Result<()> {
     let udp_addr = lookup_first(opts.udp_host.as_str(), opts.udp_port).await?;
 
     let (status_tx, mut _status_rx) = mpsc::channel(1024);
+    let handler = StorageHandler::new(status_tx);
 
-    ingest::listen_tcp(&tcp_addr, opts.tcp_read_timeout.into(), status_tx.clone()).await?;
-    ingest::listen_udp(&udp_addr, status_tx).await?;
+    ingest::listen_tcp(&tcp_addr, opts.tcp_read_timeout.into(), handler.clone()).await?;
+    ingest::listen_udp(&udp_addr, handler.clone()).await?;
     http::listen(&http_addr).await?;
 
     Ok(())
@@ -109,4 +119,22 @@ fn setup_logging() -> eyre::Result<()> {
     tracing_subscriber::registry().with(filter).with(output).with(errors).init();
 
     Ok(())
+}
+
+#[derive(Clone)]
+struct StorageHandler {
+    channel: Sender<Status>,
+}
+
+impl StorageHandler {
+    fn new(channel: Sender<Status>) -> Self {
+        Self { channel }
+    }
+}
+
+#[async_trait]
+impl StatusHandler for StorageHandler {
+    async fn run(&self, status: Status) -> eyre::Result<()> {
+        self.channel.send(status).await.map_err(|err| eyre!(err))
+    }
 }

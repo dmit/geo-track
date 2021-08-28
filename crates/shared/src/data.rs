@@ -16,9 +16,7 @@ use uuid::Uuid;
 pub struct SourceId(Uuid);
 
 impl Display for SourceId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.0.fmt(f)
-    }
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { self.0.fmt(f) }
 }
 
 /// A data packet from a given source, created at a given time. May optionally

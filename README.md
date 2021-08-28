@@ -43,7 +43,7 @@ cargo fmt
 cargo clippy
 ```
 
-## Features
+## Feature roadmap
 
 - [x] Event ingestion
   - [ ] JSON over HTTP
