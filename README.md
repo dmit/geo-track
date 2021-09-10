@@ -12,13 +12,13 @@ Run the server locally in dev mode:
 
 ```sh
 export RUST_LOG=info,server=debug,tower_http=debug
-cargo run --bin server
+cargo run --bin server --features=bin,sled
 ```
 
 Build release binaries:
 
 ```sh
-cargo build --release
+cargo build --release --features=bin,sled
 ```
 
 ## Development

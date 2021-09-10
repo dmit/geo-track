@@ -5,29 +5,48 @@ mod memory;
 #[cfg(feature = "sled")]
 mod sled;
 
-use std::{fmt::Debug, ops::RangeBounds, str::FromStr};
+use std::{
+    fmt::Debug,
+    ops::{Bound, RangeBounds},
+    str::FromStr,
+};
 
 use async_trait::async_trait;
-use eyre::bail;
 use shared::data::{SourceId, Status};
+use thiserror::Error;
 use time::OffsetDateTime;
 
-use crate::storage::memory::MemoryStorage;
+use crate::{
+    cq::{Address, Request},
+    storage::memory::MemoryStorage,
+};
+
+/// Storage errors.
+#[derive(Debug, Error)]
+pub enum StorageError {
+    #[cfg(feature = "sled")]
+    #[error("Sled error")]
+    Sled(#[from] ::sled::Error),
+    #[error("storage type not compiled: {name}; recompile with corresponding --features flag")]
+    StorageNotCompiled { name: String },
+    #[error("unknown duplicate strategy: {name}")]
+    UnknownDupeStrategy { name: String },
+    #[error("unknown storage type: {name}")]
+    UnknownStorageType { name: String },
+}
+
+pub type Result<T> = std::result::Result<T, StorageError>;
 
 /// This trait describes the operations that all supported storage engines must
 /// support in order to be used in this project.
 #[async_trait]
 pub trait Storage {
     /// Save a single [`Status`] packet.
-    async fn persist_status(&mut self, status: Status) -> eyre::Result<()>;
+    async fn persist_status(&mut self, status: Status) -> Result<()>;
 
     /// Get a range of [`Status`] packets for a given [`SourceId`] in a given
     /// time range.
-    async fn get_statuses<R>(
-        &self,
-        source_id: SourceId,
-        timestamps: R,
-    ) -> eyre::Result<Vec<Status>>
+    async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> Result<Vec<Status>>
     where
         R: RangeBounds<OffsetDateTime> + Send + Debug;
 }
@@ -47,9 +66,9 @@ pub enum StorageConfig {
 }
 
 impl FromStr for StorageConfig {
-    type Err = eyre::Report;
+    type Err = StorageError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         let storage = match s {
             "memory" => Self::InMemory,
             #[cfg(feature = "sled")]
@@ -65,9 +84,9 @@ impl FromStr for StorageConfig {
             }
             #[cfg(not(feature = "sled"))]
             _ if s == "sled" || s.starts_with("sled:") => {
-                bail!("recompile with --features=sled for Sled storage support")
+                return Err(StorageError::StorageNotCompiled { name: s.to_owned() });
             }
-            _ => bail!("unsupported storage type: {}", s),
+            _ => return Err(StorageError::UnknownStorageType { name: s.to_owned() }),
         };
         Ok(storage)
     }
@@ -87,14 +106,14 @@ pub enum DupeStrategy {
 }
 
 impl FromStr for DupeStrategy {
-    type Err = eyre::Report;
+    type Err = StorageError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         let strat = match s {
             "drop" => Self::Drop,
             "merge" => Self::Merge,
             "overwrite" => Self::Overwrite,
-            _ => bail!("unsupported duplicate strategy: {}", s),
+            _ => return Err(StorageError::UnknownDupeStrategy { name: s.to_owned() }),
         };
         Ok(strat)
     }
@@ -111,7 +130,7 @@ pub enum StorageEngine {
 
 #[async_trait]
 impl Storage for StorageEngine {
-    async fn persist_status(&mut self, status: Status) -> eyre::Result<()> {
+    async fn persist_status(&mut self, status: Status) -> Result<()> {
         match self {
             Self::InMemory(s) => s.persist_status(status).await,
             #[cfg(feature = "sled")]
@@ -119,7 +138,7 @@ impl Storage for StorageEngine {
         }
     }
 
-    async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> eyre::Result<Vec<Status>>
+    async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> Result<Vec<Status>>
     where
         R: RangeBounds<OffsetDateTime> + Send + Debug,
     {
@@ -134,7 +153,7 @@ impl Storage for StorageEngine {
 /// Initialize an instance of a storage engine based on the provided
 /// [`StorageConfig`] and return it.
 #[tracing::instrument]
-pub fn init(cfg: &StorageConfig, dupe_strategy: DupeStrategy) -> eyre::Result<StorageEngine> {
+pub fn init(cfg: &StorageConfig, dupe_strategy: DupeStrategy) -> Result<StorageEngine> {
     match cfg {
         StorageConfig::InMemory => Ok(StorageEngine::InMemory(MemoryStorage::new(dupe_strategy))),
         #[cfg(feature = "sled")]
@@ -142,4 +161,29 @@ pub fn init(cfg: &StorageConfig, dupe_strategy: DupeStrategy) -> eyre::Result<St
             sled::SledStorage::new(config, dupe_strategy).map(StorageEngine::Sled)
         }
     }
+}
+
+pub type StorageHandler = Address<StorageCommand, StorageQuery>;
+
+pub enum StorageCommand {
+    PersistStatus(Status),
+}
+
+impl Request for StorageCommand {
+    type Result = Result<()>;
+}
+
+pub enum StorageQuery {
+    GetStatuses(GetStatuses),
+}
+
+impl Request for StorageQuery {
+    //TODO
+    type Result = Result<()>;
+}
+
+#[derive(Debug, Clone)]
+pub struct GetStatuses {
+    source_id: SourceId,
+    timestamps: (Bound<OffsetDateTime>, Bound<OffsetDateTime>),
 }

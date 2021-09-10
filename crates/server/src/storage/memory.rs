@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use time::OffsetDateTime;
 
-use crate::storage::{DupeStrategy, Storage};
+use crate::storage::{self, DupeStrategy, Storage};
 
 pub struct MemoryStorage {
     statuses: HashMap<SourceId, BTreeMap<OffsetDateTime, Status>>,
@@ -23,7 +23,7 @@ impl MemoryStorage {
 
 #[async_trait]
 impl Storage for MemoryStorage {
-    async fn persist_status(&mut self, status: Status) -> eyre::Result<()> {
+    async fn persist_status(&mut self, status: Status) -> storage::Result<()> {
         match self.dupe_strategy {
             DupeStrategy::Drop => {
                 self.statuses
@@ -47,7 +47,11 @@ impl Storage for MemoryStorage {
         Ok(())
     }
 
-    async fn get_statuses<R>(&self, source_id: SourceId, timestamps: R) -> eyre::Result<Vec<Status>>
+    async fn get_statuses<R>(
+        &self,
+        source_id: SourceId,
+        timestamps: R,
+    ) -> storage::Result<Vec<Status>>
     where
         R: RangeBounds<OffsetDateTime> + Send + Debug,
     {

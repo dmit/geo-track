@@ -7,39 +7,38 @@
 //! status update per datagram, while the TCP listener can decode a stream of
 //! one or more payloads.
 
-use std::future::Future;
 use std::{net::SocketAddr, time::Duration};
 
-use async_trait::async_trait;
-use eyre::eyre;
 use futures_util::stream::StreamExt;
 use shared::data::Status;
+use thiserror::Error;
 use tokio::{
     net::{TcpListener, TcpStream, UdpSocket},
     time::timeout,
 };
 use tokio_util::codec::FramedRead;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
-/// This describes an interface that allows ingestion points to pass on incoming
-/// well-formed [`Status`] packets further into the processing system without
-/// exposing any implementation details.
-#[async_trait]
-pub trait StatusHandler: Clone + Send + Sync + 'static {
-    /// Hand off the [`Status`] packet for processing.
-    async fn run(&self, status: Status) -> eyre::Result<()>;
+use crate::{
+    cq::CqrsError,
+    storage::{StorageCommand, StorageError, StorageHandler},
+};
+
+#[derive(Debug, Error)]
+pub enum IngestError {
+    #[error("packet deserialization error")]
+    Deserialize(#[from] tokio_serde_cbor::Error),
+    #[error("internal communication error")]
+    Internal(#[from] CqrsError),
+    #[error("IO error")]
+    Io(#[from] std::io::Error),
+    #[error("internal storage error")]
+    Storage(#[from] StorageError),
+    #[error("timeout elapsed")]
+    Timeout(#[from] tokio::time::error::Elapsed),
 }
 
-#[async_trait]
-impl<FN, FUT> StatusHandler for FN
-where
-    FN: Fn(Status) -> FUT + Clone + Send + Sync + 'static,
-    FUT: Future<Output = eyre::Result<()>> + Send,
-{
-    async fn run(&self, status: Status) -> eyre::Result<()> {
-        self(status).await
-    }
-}
+pub type Result<T> = std::result::Result<T, IngestError>;
 
 /// Bind to the specified network address and start listening for incoming
 /// [`Status`] packets over TCP. Incoming packets are decoded and forwarded for
@@ -48,8 +47,8 @@ where
 pub async fn listen_tcp(
     addr: &SocketAddr,
     read_timeout: Duration,
-    handler: impl StatusHandler,
-) -> eyre::Result<()> {
+    handler: StorageHandler,
+) -> Result<()> {
     info!("Starting TCP listener at http://{}:{}...", addr.ip(), addr.port());
 
     let listener = TcpListener::bind(addr).await?;
@@ -88,11 +87,11 @@ async fn process_status_stream(
     stream: TcpStream,
     read_timeout: Duration,
     remote_addr: SocketAddr,
-    handler: impl StatusHandler,
-) -> eyre::Result<()> {
+    handler: StorageHandler,
+) -> Result<()> {
     let mut reader = FramedRead::new(stream, tokio_serde_cbor::Decoder::<Status>::new());
     while let Some(frame) = timeout(read_timeout, reader.next()).await? {
-        let status = frame.map_err(|err| eyre!("failed to deserialize status: {}", err))?;
+        let status = frame?;
         debug!(
             %remote_addr,
             source_id = %status.source_id,
@@ -100,7 +99,7 @@ async fn process_status_stream(
             "received status: {:?}",
             status
         );
-        handler.run(status).await.expect("Status channel");
+        handler.command(StorageCommand::PersistStatus(status)).await??;
     }
     Ok(())
 }
@@ -109,7 +108,7 @@ async fn process_status_stream(
 /// [`Status`] packets over UDP. Incoming packets are decoded and forwarded for
 /// storage and further processing.
 #[tracing::instrument(skip(handler))]
-pub async fn listen_udp(addr: &SocketAddr, handler: impl StatusHandler) -> eyre::Result<()> {
+pub async fn listen_udp(addr: &SocketAddr, handler: StorageHandler) -> Result<()> {
     info!("Starting UDP listener at http://{}:{}...", addr.ip(), addr.port());
 
     let socket = UdpSocket::bind(addr).await?;
@@ -130,7 +129,11 @@ pub async fn listen_udp(addr: &SocketAddr, handler: impl StatusHandler) -> eyre:
                             "received status: {:?}",
                             status
                         );
-                        handler.run(status).await.expect("Status channel");
+                        if let Err(err) =
+                            handler.command(StorageCommand::PersistStatus(status)).await
+                        {
+                            error!(%err, "failed to handle incoming status");
+                        }
                     }
                     Err(err) => {
                         debug!(%remote_addr, %err, "failed to deserialize status");

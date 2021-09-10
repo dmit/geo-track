@@ -1,19 +1,15 @@
-use std::{io, net::SocketAddr};
+use std::{fmt::Debug, io, net::SocketAddr};
 
 use argh::FromArgs;
-use async_trait::async_trait;
+
 use eyre::{eyre, WrapErr};
 use server::{
-    http,
-    ingest::{self, StatusHandler},
-    storage,
+    cq::{self, Request},
+    http, ingest,
+    storage::{self, StorageCommand, StorageQuery},
 };
-use shared::data::Status;
-use tokio::{
-    net::lookup_host,
-    sync::mpsc::{self, Sender},
-};
-use tracing::info;
+use tokio::net::lookup_host;
+use tracing::{error, info};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
 
@@ -79,32 +75,47 @@ async fn main() -> eyre::Result<()> {
             .wrap_err_with(|| eyre!("Failed to resolve hostname: {}", host))
     }
 
-    setup_logging()?;
+    set_up_logging()?;
 
     let opts = argh::from_env::<Opts>();
     info!(?opts, "Starting server...");
 
     // Initializing storage.
     info!("Initializing storage...");
-    let mut _storage =
+    let _storage =
         storage::init(&opts.storage, opts.duplicates).wrap_err("Failed to initialize storage")?;
+
+    let (status_tx, mut status_rx) = cq::bounded(1024, on_command, on_query);
+
+    tokio::spawn(async move {
+        loop {
+            if let Err(err) = status_rx.next().await {
+                error!(%err, "Failed to process status event");
+            }
+        }
+    });
 
     // Initializing network listeners.
     let http_addr = lookup_first(opts.host.as_str(), opts.port).await?;
     let tcp_addr = lookup_first(opts.tcp_host.as_str(), opts.tcp_port).await?;
     let udp_addr = lookup_first(opts.udp_host.as_str(), opts.udp_port).await?;
 
-    let (status_tx, mut _status_rx) = mpsc::channel(1024);
-    let handler = StorageHandler::new(status_tx);
-
-    ingest::listen_tcp(&tcp_addr, opts.tcp_read_timeout.into(), handler.clone()).await?;
-    ingest::listen_udp(&udp_addr, handler.clone()).await?;
-    http::listen(&http_addr).await?;
+    ingest::listen_tcp(&tcp_addr, opts.tcp_read_timeout.into(), status_tx.clone()).await?;
+    ingest::listen_udp(&udp_addr, status_tx.clone()).await?;
+    http::listen(&http_addr, status_tx.clone()).await?;
 
     Ok(())
 }
 
-fn setup_logging() -> eyre::Result<()> {
+async fn on_command(_cmd: StorageCommand) -> <StorageCommand as Request>::Result {
+    todo!();
+}
+
+async fn on_query(_query: StorageQuery) -> <StorageQuery as Request>::Result {
+    todo!();
+}
+
+fn set_up_logging() -> eyre::Result<()> {
     // Backtrace and spantrace capture.
     color_eyre::install()?;
 
@@ -119,22 +130,4 @@ fn setup_logging() -> eyre::Result<()> {
     tracing_subscriber::registry().with(filter).with(output).with(errors).init();
 
     Ok(())
-}
-
-#[derive(Clone)]
-struct StorageHandler {
-    channel: Sender<Status>,
-}
-
-impl StorageHandler {
-    fn new(channel: Sender<Status>) -> Self {
-        Self { channel }
-    }
-}
-
-#[async_trait]
-impl StatusHandler for StorageHandler {
-    async fn run(&self, status: Status) -> eyre::Result<()> {
-        self.channel.send(status).await.map_err(|err| eyre!(err))
-    }
 }
