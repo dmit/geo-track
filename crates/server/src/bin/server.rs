@@ -8,10 +8,11 @@ use server::{
     http, ingest,
     storage::{self, StorageCommand, StorageQuery},
 };
+use time::{format_description, macros::format_description};
 use tokio::net::lookup_host;
 use tracing::{error, info};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{fmt::time::ChronoUtc, prelude::*, EnvFilter};
+use tracing_subscriber::{fmt::time::UtcTime, prelude::*, EnvFilter};
 
 #[derive(Debug, FromArgs)]
 #[argh(description = "Geo Tracker network service")]
@@ -116,6 +117,9 @@ async fn on_query(_query: StorageQuery) -> <StorageQuery as Request>::Result {
 }
 
 fn set_up_logging() -> eyre::Result<()> {
+    const TIMESTAMP_FORMAT: &[format_description::FormatItem] =
+        format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]Z");
+
     // Backtrace and spantrace capture.
     color_eyre::install()?;
 
@@ -124,8 +128,7 @@ fn set_up_logging() -> eyre::Result<()> {
         std::env::set_var("RUST_LOG", "info");
     }
     let filter = EnvFilter::try_from_default_env()?;
-    let output = tracing_subscriber::fmt::layer()
-        .with_timer(ChronoUtc::with_format("%Y-%m-%d %H:%M:%S.%3fZ".to_owned()));
+    let output = tracing_subscriber::fmt::layer().with_timer(UtcTime::new(TIMESTAMP_FORMAT));
     let errors = ErrorLayer::default();
     tracing_subscriber::registry().with(filter).with(output).with(errors).init();
 

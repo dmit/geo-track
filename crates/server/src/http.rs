@@ -4,9 +4,8 @@ use std::net::SocketAddr;
 
 use axum::{
     extract,
-    handler::{get, post},
     http::StatusCode,
-    routing::Router,
+    routing::{get, Router},
     AddExtensionLayer, Json,
 };
 use serde::Deserialize;
@@ -31,8 +30,7 @@ pub async fn listen(addr: &SocketAddr, handler: StorageHandler) -> Result<()> {
     // Routes are listed from least specific to most specific.
     let app = Router::new()
         .route("/", get(hello))
-        .route("/status", get(latest_status))
-        .route("/status", post(submit_status))
+        .route("/status", get(latest_status).post(submit_status))
         .layer(AddExtensionLayer::new(handler))
         .layer(TraceLayer::new_for_http());
 
