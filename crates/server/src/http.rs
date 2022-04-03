@@ -6,7 +6,7 @@ use axum::{
     extract,
     http::StatusCode,
     routing::{get, Router},
-    AddExtensionLayer, Json,
+    Extension, Json,
 };
 use serde::Deserialize;
 use shared::data::{SourceId, Status};
@@ -31,7 +31,7 @@ pub async fn listen(addr: &SocketAddr, handler: StorageHandler) -> Result<()> {
     let app = Router::new()
         .route("/", get(hello))
         .route("/status", get(latest_status).post(submit_status))
-        .layer(AddExtensionLayer::new(handler))
+        .layer(Extension(handler))
         .layer(TraceLayer::new_for_http());
 
     info!("Starting HTTP server at http://{}:{}...", addr.ip(), addr.port());

@@ -136,6 +136,14 @@ mod tests {
         0x1a, 0x60, 0xff, 0x9d, 0x6f,
     ];
 
+    fn cbor_to_bytes<T: serde::Serialize>(
+        val: &T,
+    ) -> Result<Vec<u8>, ciborium::ser::Error<std::io::Error>> {
+        let mut bytes = Vec::new();
+        ciborium::ser::into_writer(val, &mut bytes)?;
+        Ok(bytes)
+    }
+
     #[test]
     fn status_merge() {
         let merged1 = FULL.merge(&MINIMAL);
@@ -169,22 +177,22 @@ mod tests {
     }
 
     #[test]
-    fn cbor_serialization_full() -> serde_cbor::Result<()> {
-        let encoded = serde_cbor::to_vec(&FULL)?;
+    fn cbor_serialization_full() -> Result<(), ciborium::ser::Error<std::io::Error>> {
+        let encoded = cbor_to_bytes(&FULL)?;
         assert_eq!(encoded, FULL_CBOR);
         Ok(())
     }
 
     #[test]
-    fn cbor_serialization_minimal() -> serde_cbor::Result<()> {
-        let encoded = serde_cbor::to_vec(&MINIMAL)?;
+    fn cbor_serialization_minimal() -> Result<(), ciborium::ser::Error<std::io::Error>> {
+        let encoded = cbor_to_bytes(&MINIMAL)?;
         assert_eq!(encoded, MINIMAL_CBOR);
         Ok(())
     }
 
     #[test]
-    fn cbor_deserialization_minimal() -> serde_cbor::Result<()> {
-        let decoded: Status = serde_cbor::from_slice(MINIMAL_CBOR)?;
+    fn cbor_deserialization_minimal() -> Result<(), ciborium::de::Error<std::io::Error>> {
+        let decoded: Status = ciborium::de::from_reader(MINIMAL_CBOR)?;
 
         assert_eq!(decoded.source_id, MINIMAL.source_id);
         assert_eq!(decoded.timestamp, MINIMAL.timestamp);

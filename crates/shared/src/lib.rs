@@ -5,7 +5,7 @@
 //! The crate is marked `no_std`, which makes it possible to use it even on
 //! small embedded devices.
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 

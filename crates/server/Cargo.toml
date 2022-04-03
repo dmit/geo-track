@@ -1,32 +1,33 @@
 [package]
 name = "server"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 publish = false
 
 [dependencies]
-argh = { version = "0.1.6", optional = true }
-async-trait = "0.1.51"
-axum = "0.3.0"
-color-eyre = { version = "0.5.11", optional = true }
-eyre = { version = "0.6.5", optional = true }
-futures-util = { version = "0.3.17", default-features = false }
+argh = { version = "0.1.7", optional = true }
+async-trait = "0.1.53"
+axum = "0.5.0"
+bytes = "1.1.0"
+ciborium = "0.2.0"
+ciborium-io = "0.2.0"
+color-eyre = { version = "0.6.1", optional = true }
+eyre = { version = "0.6.7", optional = true }
+futures-util = { version = "0.3.21", default-features = false }
 humantime = { version = "2.1.0", optional = true }
-hyper = "0.14.14"
-serde = "1.0.130"
-serde_cbor = "0.11.2"
-serde_json = "1.0.68"
+hyper = "0.14.18"
+serde = "1.0.136"
+serde_json = "1.0.79"
 shared = { path = "../shared" }
 sled = { version = "0.34.7", optional = true }
 thiserror = "1.0.30"
-time = { version = "0.3.4", default-features = false }
-tokio = { version = "1.13.0", features = ["io-util", "macros", "rt-multi-thread"] }
-tokio-serde-cbor = "0.6.0"
-tokio-util = { version = "0.6.9", features = ["codec"] }
-tower-http = { version = "0.1.1", features = ["trace"] }
-tracing = "0.1.29"
+time = { version = "0.3.9", default-features = false }
+tokio = { version = "1.17.0", features = ["io-util", "macros", "rt-multi-thread"] }
+tokio-util = { version = "0.7.1", features = ["codec"] }
+tower-http = { version = "0.2.5", features = ["trace"] }
+tracing = "0.1.32"
 tracing-error = { version = "0.2.0", optional = true }
-tracing-subscriber = { version = "0.3.1", optional = true, features = ["env-filter", "time"] }
+tracing-subscriber = { version = "0.3.10", optional = true, features = ["env-filter", "time"] }
 
 [lib]
 name = "server"

@@ -22,12 +22,13 @@ use tracing::{debug, error, info, warn};
 use crate::{
     cq::CqrsError,
     storage::{StorageCommand, StorageError, StorageHandler},
+    util::cbor::CborDecoder,
 };
 
 #[derive(Debug, Error)]
 pub enum IngestError {
     #[error("packet deserialization error")]
-    Deserialize(#[from] tokio_serde_cbor::Error),
+    Deserialize(#[from] ciborium::de::Error<std::io::Error>),
     #[error("internal communication error")]
     Internal(#[from] CqrsError),
     #[error("IO error")]
@@ -89,7 +90,7 @@ async fn process_status_stream(
     remote_addr: SocketAddr,
     handler: StorageHandler,
 ) -> Result<()> {
-    let mut reader = FramedRead::new(stream, tokio_serde_cbor::Decoder::<Status>::new());
+    let mut reader = FramedRead::new(stream, CborDecoder::<Status>::default());
     while let Some(frame) = timeout(read_timeout, reader.next()).await? {
         let status = frame?;
         debug!(
@@ -120,25 +121,27 @@ pub async fn listen_udp(addr: &SocketAddr, handler: StorageHandler) -> Result<()
     tokio::spawn(async move {
         loop {
             match socket.recv_from(&mut buf).await {
-                Ok((len, remote_addr)) => match serde_cbor::from_slice::<Status>(&buf[0..len]) {
-                    Ok(status) => {
-                        debug!(
-                            %remote_addr,
-                            source_id = %status.source_id,
-                            timestamp = %status.timestamp,
-                            "received status: {:?}",
-                            status
-                        );
-                        if let Err(err) =
-                            handler.command(StorageCommand::PersistStatus(status)).await
-                        {
-                            error!(%err, "failed to handle incoming status");
+                Ok((len, remote_addr)) => {
+                    match ciborium::de::from_reader::<Status, _>(&buf[0..len]) {
+                        Ok(status) => {
+                            debug!(
+                                %remote_addr,
+                                source_id = %status.source_id,
+                                timestamp = %status.timestamp,
+                                "received status: {:?}",
+                                status
+                            );
+                            if let Err(err) =
+                                handler.command(StorageCommand::PersistStatus(status)).await
+                            {
+                                error!(%err, "failed to handle incoming status");
+                            }
+                        }
+                        Err(err) => {
+                            debug!(%remote_addr, %err, "failed to deserialize status");
                         }
                     }
-                    Err(err) => {
-                        debug!(%remote_addr, %err, "failed to deserialize status");
-                    }
-                },
+                }
                 Err(err) => {
                     debug!(%err, "failed to read datagram");
                 }
