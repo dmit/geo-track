@@ -1,33 +1,33 @@
 [package]
 name = "server"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 publish = false
 
 [dependencies]
-argh = { version = "0.1.7", optional = true }
-async-trait = "0.1.53"
-axum = "0.5.0"
-bytes = "1.1.0"
-ciborium = "0.2.0"
-ciborium-io = "0.2.0"
-color-eyre = { version = "0.6.1", optional = true }
-eyre = { version = "0.6.7", optional = true }
-futures-util = { version = "0.3.21", default-features = false }
-humantime = { version = "2.1.0", optional = true }
-hyper = "0.14.18"
-serde = "1.0.136"
-serde_json = "1.0.79"
+argh = { workspace = true, optional = true }
+async-trait = { workspace = true }
+axum = { workspace = true, features = ["http1", "json", "query"] }
+bytes = { workspace = true }
+ciborium = { workspace = true, features = ["std"] }
+ciborium-io = { workspace = true }
+color-eyre = { workspace = true, optional = true }
+eyre = { workspace = true, optional = true }
+futures-util = { workspace = true, default-features = false }
+humantime = { workspace = true, optional = true }
+hyper = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 shared = { path = "../shared" }
-sled = { version = "0.34.7", optional = true }
-thiserror = "1.0.30"
-time = { version = "0.3.9", default-features = false }
-tokio = { version = "1.17.0", features = ["io-util", "macros", "rt-multi-thread"] }
-tokio-util = { version = "0.7.1", features = ["codec"] }
-tower-http = { version = "0.2.5", features = ["trace"] }
-tracing = "0.1.32"
-tracing-error = { version = "0.2.0", optional = true }
-tracing-subscriber = { version = "0.3.10", optional = true, features = ["env-filter", "time"] }
+sled = { workspace = true, optional = true }
+thiserror = { workspace = true }
+time = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["io-util", "macros", "rt-multi-thread"] }
+tokio-util = { workspace = true, features = ["codec"] }
+tower-http = { workspace = true, features = ["trace"] }
+tracing = { workspace = true, features = ["attributes", "std"] }
+tracing-error = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true, features = ["env-filter", "time"] }
 
 [lib]
 name = "server"
