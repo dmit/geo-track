@@ -3,7 +3,7 @@
 
 use core::fmt::Display;
 
-use geo_types::Coordinate;
+use geo_types::Coord;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uom::si::f64::{Angle, Velocity};
@@ -34,7 +34,7 @@ pub struct Status {
     pub timestamp: OffsetDateTime,
     /// GPS position. Serialized as [lon, lat].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<Coordinate<f64>>,
+    pub position: Option<Coord<f64>>,
     /// Movement direction. From 0 at North clockwise. Serialized as radians.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bearing: Option<Angle>,
@@ -64,7 +64,7 @@ mod tests {
     use core::marker::PhantomData;
 
     use float_eq::assert_float_eq;
-    use geo_types::Coordinate;
+    use geo_types::Coord;
     use time::macros::datetime;
     use uom::si::{angle::degree, velocity::kilometer_per_hour, Quantity};
     use uuid::Uuid;
@@ -74,7 +74,7 @@ mod tests {
     const FULL: Status = Status {
         source_id: SourceId(Uuid::from_u128(0x0aaec05a_0e7d_4fd5_abc0_0ba69e3cfe11)),
         timestamp: datetime!(2021-07-27 08:45:19 +3),
-        position: Some(Coordinate { x: 24.745_278, y: 59.437_222 }),
+        position: Some(Coord { x: 24.745_278, y: 59.437_222 }),
         bearing: Some(Quantity { dimension: PhantomData, units: PhantomData, value: 1.234 }),
         speed: Some(Quantity { dimension: PhantomData, units: PhantomData, value: 15. }),
     };
