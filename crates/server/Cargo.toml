@@ -33,7 +33,15 @@ tracing-subscriber = { workspace = true, optional = true, features = ["env-filte
 name = "server"
 
 [features]
-bin = ["argh", "color-eyre", "eyre", "humantime", "tracing-error", "tracing-subscriber"]
+bin = [
+	"argh",
+	"color-eyre",
+	"eyre",
+	"humantime",
+	"time/macros",
+	"tracing-error",
+	"tracing-subscriber",
+]
 
 [[bin]]
 name = "server"

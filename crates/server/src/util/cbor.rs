@@ -11,7 +11,7 @@ impl<T> Default for CborDecoder<T> {
     }
 }
 
-impl<'de, T: serde::Deserialize<'de>> Decoder for CborDecoder<T> {
+impl<T: serde::de::DeserializeOwned> Decoder for CborDecoder<T> {
     type Item = T;
     type Error = ciborium::de::Error<std::io::Error>;
 

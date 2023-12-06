@@ -10,15 +10,15 @@ consider tracking fleets of delivery vehicles, ships, airplanes, etc.
 
 Run the server locally in dev mode:
 
-```sh
+```console
 export RUST_LOG=info,server=debug,tower_http=debug
-cargo run --bin server --features=bin,sled
+cargo run --bin server --features bin,sled
 ```
 
 Build release binaries:
 
-```sh
-cargo build --release --features=bin,sled
+```console
+cargo build --release --features bin,sled
 ```
 
 ## Development
@@ -32,15 +32,21 @@ about the code base.
 
 Run unit tests:
 
-```sh
+```console
 cargo test
+```
+
+or using [cargo-nextest](https://nexte.st):
+
+```console
+cargo nextest run
 ```
 
 Format code and run linter:
 
-```sh
+```console
 cargo fmt
-cargo clippy
+cargo clippy --features bin,sled
 ```
 
 ## Feature roadmap

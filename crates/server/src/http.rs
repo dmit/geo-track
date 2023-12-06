@@ -11,6 +11,7 @@ use axum::{
 use serde::Deserialize;
 use shared::data::{SourceId, Status};
 use thiserror::Error;
+use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 
@@ -18,8 +19,8 @@ use crate::storage::{StorageCommand, StorageHandler};
 
 #[derive(Debug, Error)]
 pub enum HttpError {
-    #[error("internal engine error")]
-    Internal(#[from] hyper::Error),
+    #[error("internal HTTP server error")]
+    Internal(#[from] std::io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, HttpError>;
@@ -35,7 +36,9 @@ pub async fn listen(addr: &SocketAddr, handler: StorageHandler) -> Result<()> {
         .layer(TraceLayer::new_for_http());
 
     info!("Starting HTTP server at http://{}:{}...", addr.ip(), addr.port());
-    axum::Server::bind(addr).serve(app.into_make_service()).await?;
+
+    let listener = TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
