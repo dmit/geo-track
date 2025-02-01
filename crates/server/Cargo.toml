@@ -6,7 +6,6 @@ publish = false
 
 [dependencies]
 argh = { workspace = true, optional = true }
-async-trait = { workspace = true }
 axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
 bytes = { workspace = true }
 ciborium = { workspace = true, features = ["std"] }

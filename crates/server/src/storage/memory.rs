@@ -4,7 +4,6 @@ use std::{
     ops::RangeBounds,
 };
 
-use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use time::OffsetDateTime;
 
@@ -21,7 +20,6 @@ impl MemoryStorage {
     }
 }
 
-#[async_trait]
 impl Storage for MemoryStorage {
     async fn persist_status(&mut self, status: Status) -> storage::Result<()> {
         match self.dupe_strategy {

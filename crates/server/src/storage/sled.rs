@@ -1,6 +1,5 @@
 use std::{fmt::Debug, ops::RangeBounds, path::PathBuf};
 
-use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use sled::Db;
 use time::OffsetDateTime;
@@ -30,7 +29,6 @@ impl SledStorage {
     }
 }
 
-#[async_trait]
 impl Storage for SledStorage {
     #[tracing::instrument(skip(self))]
     async fn persist_status(&mut self, status: Status) -> storage::Result<()> {

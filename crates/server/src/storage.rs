@@ -11,7 +11,6 @@ use std::{
     str::FromStr,
 };
 
-use async_trait::async_trait;
 use shared::data::{SourceId, Status};
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -39,8 +38,7 @@ pub type Result<T> = std::result::Result<T, StorageError>;
 
 /// This trait describes the operations that all supported storage engines must
 /// support in order to be used in this project.
-#[async_trait]
-pub trait Storage {
+trait Storage {
     /// Save a single [`Status`] packet.
     async fn persist_status(&mut self, status: Status) -> Result<()>;
 
@@ -128,7 +126,6 @@ pub enum StorageEngine {
     Sled(sled::SledStorage),
 }
 
-#[async_trait]
 impl Storage for StorageEngine {
     async fn persist_status(&mut self, status: Status) -> Result<()> {
         match self {
