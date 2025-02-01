@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 
 use axum::{
-    extract,
+    extract::{self, Query},
     http::StatusCode,
     routing::{get, Router},
     Extension, Json,
@@ -49,9 +49,9 @@ struct HelloQuery {
 }
 
 #[tracing::instrument]
-async fn hello(query: Option<extract::Query<HelloQuery>>) -> String {
+async fn hello(Query(query): Query<Option<HelloQuery>>) -> String {
     match query {
-        Some(extract::Query(HelloQuery { name })) => format!("Hello, {}!", name),
+        Some(HelloQuery { name }) => format!("Hello, {}!", name),
         None => "Hello!".to_owned(),
     }
 }
@@ -77,7 +77,7 @@ struct LatestStatusQuery {
 
 #[tracing::instrument]
 async fn latest_status(
-    extract::Query(query): extract::Query<LatestStatusQuery>,
+    Query(query): Query<LatestStatusQuery>,
 ) -> std::result::Result<Json<Status>, StatusCode> {
     // query.source_id
     todo!()
