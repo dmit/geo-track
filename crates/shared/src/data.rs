@@ -66,7 +66,7 @@ mod tests {
     use float_eq::assert_float_eq;
     use geo_types::Coord;
     use time::macros::datetime;
-    use uom::si::{angle::degree, velocity::kilometer_per_hour, Quantity};
+    use uom::si::{Quantity, angle::degree, velocity::kilometer_per_hour};
     use uuid::Uuid;
 
     use crate::data::{SourceId, Status};

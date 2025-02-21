@@ -3,10 +3,10 @@
 use std::net::SocketAddr;
 
 use axum::{
+    Extension, Json,
     extract::{self, Query},
     http::StatusCode,
-    routing::{get, Router},
-    Extension, Json,
+    routing::{Router, get},
 };
 use serde::Deserialize;
 use shared::data::{SourceId, Status};

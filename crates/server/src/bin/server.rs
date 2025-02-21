@@ -2,7 +2,7 @@ use std::{fmt::Debug, io, net::SocketAddr};
 
 use argh::FromArgs;
 
-use eyre::{eyre, WrapErr};
+use eyre::{WrapErr, eyre};
 use server::{
     cq::{self, Request},
     http, ingest,
@@ -12,7 +12,7 @@ use time::{format_description, macros::format_description};
 use tokio::net::lookup_host;
 use tracing::{error, info};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{fmt::time::UtcTime, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter, fmt::time::UtcTime, prelude::*};
 
 #[derive(Debug, FromArgs)]
 #[argh(description = "Geo Tracker network service")]
@@ -123,11 +123,12 @@ fn set_up_logging() -> eyre::Result<()> {
     // Backtrace and spantrace capture.
     color_eyre::install()?;
 
-    // Default log level for tracing.
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info");
-    }
-    let filter = EnvFilter::try_from_default_env()?;
+    // Default log level.
+    const DEFAULT_LOG_LEVEL: LevelFilter =
+        if cfg!(debug_assertions) { LevelFilter::DEBUG } else { LevelFilter::INFO };
+
+    let filter =
+        EnvFilter::builder().with_default_directive(DEFAULT_LOG_LEVEL.into()).try_from_env()?;
     let output = tracing_subscriber::fmt::layer().with_timer(UtcTime::new(TIMESTAMP_FORMAT));
     let errors = ErrorLayer::default();
     tracing_subscriber::registry().with(filter).with(output).with(errors).init();
