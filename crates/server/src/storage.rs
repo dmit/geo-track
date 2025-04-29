@@ -107,13 +107,13 @@ impl FromStr for DupeStrategy {
     type Err = StorageError;
 
     fn from_str(s: &str) -> Result<Self> {
-        let strat = match s {
+        let strategy = match s {
             "drop" => Self::Drop,
             "merge" => Self::Merge,
             "overwrite" => Self::Overwrite,
             _ => return Err(StorageError::UnknownDupeStrategy { name: s.to_owned() }),
         };
-        Ok(strat)
+        Ok(strategy)
     }
 }
 
