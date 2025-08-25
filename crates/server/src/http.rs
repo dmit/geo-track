@@ -38,7 +38,12 @@ pub async fn listen(addr: &SocketAddr, handler: StorageHandler) -> Result<()> {
     info!("Starting HTTP server at http://{}:{}...", addr.ip(), addr.port());
 
     let listener = TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            tokio::signal::ctrl_c().await.expect("failed to register Ctrl-C listener");
+            info!("Ctrl-C signal received. Shutting down HTTP server...");
+        })
+        .await?;
 
     Ok(())
 }
