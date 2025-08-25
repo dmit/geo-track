@@ -128,7 +128,7 @@ fn set_up_logging() -> eyre::Result<()> {
         if cfg!(debug_assertions) { LevelFilter::DEBUG } else { LevelFilter::INFO };
 
     let filter =
-        EnvFilter::builder().with_default_directive(DEFAULT_LOG_LEVEL.into()).try_from_env()?;
+        EnvFilter::builder().with_default_directive(DEFAULT_LOG_LEVEL.into()).from_env()?;
     let output = tracing_subscriber::fmt::layer().with_timer(UtcTime::new(TIMESTAMP_FORMAT));
     let errors = ErrorLayer::default();
     tracing_subscriber::registry().with(filter).with(output).with(errors).init();
