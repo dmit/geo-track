@@ -69,9 +69,9 @@ async fn main() -> eyre::Result<()> {
         lookup_host((host, port))
             .await
             .and_then(|mut addrs| {
-                addrs.next().ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::Other, "Host didn't resolve to any IP addresses")
-                })
+                addrs
+                    .next()
+                    .ok_or_else(|| io::Error::other("Host didn't resolve to any IP addresses"))
             })
             .wrap_err_with(|| eyre!("Failed to resolve hostname: {}", host))
     }
