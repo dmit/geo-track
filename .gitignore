@@ -1,3 +1,5 @@
-/target/
+/.direnv/
 /geo_track_sled_db/
+/target/
 /cargo-timing*.html
+/result
