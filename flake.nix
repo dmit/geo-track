@@ -32,6 +32,7 @@
                 "clippy"
                 "rust-analyzer"
                 "rust-src"
+                "rustfmt"
               ];
 
               targets = [
@@ -41,23 +42,11 @@
           ];
 
           packages = with pkgs; [
+            cargo-edit
             cargo-nextest
+            cargo-outdated
+            cargo-update
           ];
-        };
-
-        packages = rec {
-          default = geo-track-server;
-
-          geo-track-server =
-            let
-              manifest = (pkgs.lib.importTOML ./Cargo.toml).workspace.package;
-            in
-            pkgs.rustPlatform.buildRustPackage {
-              pname = "geo-track-server";
-              version = manifest.version;
-              cargoLock.lockFile = ./Cargo.lock;
-              src = pkgs.lib.cleanSource ./.;
-            };
         };
       }
     );
